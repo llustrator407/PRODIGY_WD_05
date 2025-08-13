@@ -214,7 +214,7 @@ getGeolocationBtn.addEventListener('click', () => {
                 const { latitude, longitude } = position.coords;
                 
                 try {
-                    // This API is more reliable for reverse geocoding
+                    // **THIS IS THE CORRECTED API CALL**
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     if (!response.ok) {
                         throw new Error(`Reverse geocoding failed: ${response.status}`);
