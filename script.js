@@ -66,7 +66,7 @@ function displayWeather(data) {
     const currentWeather = data.current_weather;
     const daily = data.daily;
     
-    locationName.textContent = data.timezone.split('/').pop().replace(/_/g, ' ');
+    // The location name is now set *before* this function is called.
 
     const weatherCode = currentWeather.weathercode;
     const weatherText = getWeatherDescription(weatherCode);
@@ -108,16 +108,17 @@ function displayForecast(daily) {
         const themeClass = getWeatherTheme(weatherCode);
 
         const forecastDayHtml = `
-                <div class="flex items-center justify-between p-4 rounded-xl backdrop-blur-sm shadow-sm border border-gray-700 ${themeClass}">
-                    <span class="text-lg font-semibold w-1/4 text-white">${dayOfWeek}</span>
-                    <div class="w-1/4 flex items-center justify-center">${svgIcon}</div>
-                    <p class="text-sm capitalize w-1/4 text-white text-center">${weatherText}</p>
-                    <span class="text-lg font-bold w-1/4 text-right text-white">${tempMax}° / ${tempMin}°</span>
+                <div class="flex items-center justify-between p-3 sm:p-4 rounded-xl backdrop-blur-sm shadow-sm border border-gray-700 ${themeClass}">
+                    <span class="text-base sm:text-lg font-semibold text-white w-1/3 sm:w-1/4">${dayOfWeek}</span>
+                    <div class="w-1/3 sm:w-1/4 flex items-center justify-center">${svgIcon}</div>
+                    <p class="hidden sm:block text-sm capitalize w-1/4 text-white text-center">${weatherText}</p>
+                    <span class="text-base sm:text-lg font-bold w-1/3 sm:w-1/4 text-right text-white">${tempMax}° / ${tempMin}°</span>
                 </div>
             `;
         forecastContainer.innerHTML += forecastDayHtml;
     }
 }
+
 
 function getWeatherDescription(code) {
     const descriptions = {
@@ -188,8 +189,9 @@ getWeatherBtn.addEventListener('click', async () => {
             }
             const data = await response.json();
             if (data.results && data.results.length > 0) {
-                const { latitude, longitude } = data.results[0];
-                locationName.textContent = `${data.results[0].name}, ${data.results[0].country}`;
+                const result = data.results[0];
+                const { latitude, longitude } = result;
+                locationName.textContent = `${result.name}, ${result.country}`;
                 fetchWeatherData(latitude, longitude);
             } else {
                 showMessage('City not found. Please try a different name.', true);
@@ -208,9 +210,23 @@ getGeolocationBtn.addEventListener('click', () => {
     showMessage('Getting your location...', false);
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-            position => {
+            async (position) => {
                 const { latitude, longitude } = position.coords;
-                locationName.textContent = 'Your Location';
+                
+                try {
+                    const response = await fetch(`${GEOCODING_API_URL}?latitude=${latitude}&longitude=${longitude}&count=1`);
+                    const data = await response.json();
+                    if (data.results && data.results.length > 0) {
+                        const result = data.results[0];
+                        locationName.textContent = `${result.name}, ${result.country_code}`;
+                    } else {
+                        locationName.textContent = 'Current Location';
+                    }
+                } catch (error) {
+                    console.error('Reverse geocoding error:', error);
+                    locationName.textContent = 'Current Location';
+                }
+                
                 fetchWeatherData(latitude, longitude);
             },
             error => {
