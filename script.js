@@ -189,7 +189,6 @@ getWeatherBtn.addEventListener('click', async () => {
                 const result = data.results[0];
                 const { latitude, longitude } = result;
                 
-                // Construct location name including the state (admin1)
                 const locationParts = [result.name, result.admin1, result.country].filter(Boolean);
                 locationName.textContent = locationParts.join(', ');
 
@@ -215,6 +214,7 @@ getGeolocationBtn.addEventListener('click', () => {
                 const { latitude, longitude } = position.coords;
                 
                 try {
+                    // This API is more reliable for reverse geocoding
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     if (!response.ok) {
                         throw new Error(`Reverse geocoding failed: ${response.status}`);
@@ -227,7 +227,6 @@ getGeolocationBtn.addEventListener('click', () => {
                         const state = addr.state;
                         const country = addr.country;
 
-                        // Construct location name including the state
                         const locationParts = [city, state, country].filter(Boolean);
                         if (locationParts.length > 1) {
                             locationName.textContent = locationParts.join(', ');
