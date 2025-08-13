@@ -44,8 +44,8 @@ async function fetchWeatherData(lat, lon) {
     const params = new URLSearchParams({
         latitude: lat,
         longitude: lon,
-        current_weather: true,
-        daily: ['temperature_2m_max', 'temperature_2m_min', 'uv_index_max', 'weathercode'],
+        current: 'temperature_2m,relative_humidity_2m,pressure_msl,weather_code,wind_speed_10m',
+        daily: 'temperature_2m_max,temperature_2m_min,uv_index_max,weathercode',
         timezone: 'auto'
     });
 
@@ -63,12 +63,10 @@ async function fetchWeatherData(lat, lon) {
 }
 
 function displayWeather(data) {
-    const currentWeather = data.current_weather;
+    const currentWeather = data.current;
     const daily = data.daily;
     
-    // The location name is now set *before* this function is called.
-
-    const weatherCode = currentWeather.weathercode;
+    const weatherCode = currentWeather.weather_code;
     const weatherText = getWeatherDescription(weatherCode);
     weatherDescription.textContent = weatherText;
     weatherIconDiv.innerHTML = getWeatherSvgIcon(weatherCode, true);
@@ -76,11 +74,11 @@ function displayWeather(data) {
     const themeClass = getWeatherTheme(weatherCode);
     weatherCard.className = `rounded-2xl p-6 shadow-inner border border-gray-700 text-white transition-all duration-500 ${themeClass}`;
     
-    currentTemp.textContent = Math.round(currentWeather.temperature);
-    feelsLikeTemp.textContent = Math.round(currentWeather.temperature);
-    humidity.textContent = currentWeather.relativehumidity_2m ? Math.round(currentWeather.relativehumidity_2m) : '--';
-    windSpeed.textContent = currentWeather.windspeed ? currentWeather.windspeed : '--';
-    pressure.textContent = currentWeather.pressure_msl ? currentWeather.pressure_msl : '--';
+    currentTemp.textContent = Math.round(currentWeather.temperature_2m);
+    feelsLikeTemp.textContent = Math.round(currentWeather.temperature_2m);
+    humidity.textContent = Math.round(currentWeather.relative_humidity_2m);
+    windSpeed.textContent = currentWeather.wind_speed_10m.toFixed(1);
+    pressure.textContent = Math.round(currentWeather.pressure_msl);
     uvIndex.textContent = daily.uv_index_max && daily.uv_index_max.length > 0 ? daily.uv_index_max[0] : '--';
     
     displayForecast(daily);
@@ -118,7 +116,6 @@ function displayForecast(daily) {
         forecastContainer.innerHTML += forecastDayHtml;
     }
 }
-
 
 function getWeatherDescription(code) {
     const descriptions = {
@@ -191,7 +188,11 @@ getWeatherBtn.addEventListener('click', async () => {
             if (data.results && data.results.length > 0) {
                 const result = data.results[0];
                 const { latitude, longitude } = result;
-                locationName.textContent = `${result.name}, ${result.country}`;
+                
+                // Construct location name including the state (admin1)
+                const locationParts = [result.name, result.admin1, result.country].filter(Boolean);
+                locationName.textContent = locationParts.join(', ');
+
                 fetchWeatherData(latitude, longitude);
             } else {
                 showMessage('City not found. Please try a different name.', true);
@@ -214,17 +215,31 @@ getGeolocationBtn.addEventListener('click', () => {
                 const { latitude, longitude } = position.coords;
                 
                 try {
-                    const response = await fetch(`${GEOCODING_API_URL}?latitude=${latitude}&longitude=${longitude}&count=1`);
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    if (!response.ok) {
+                        throw new Error(`Reverse geocoding failed: ${response.status}`);
+                    }
                     const data = await response.json();
-                    if (data.results && data.results.length > 0) {
-                        const result = data.results[0];
-                        locationName.textContent = `${result.name}, ${result.country_code}`;
+                    
+                    if (data && data.address) {
+                        const addr = data.address;
+                        const city = addr.city || addr.town || addr.village || addr.hamlet;
+                        const state = addr.state;
+                        const country = addr.country;
+
+                        // Construct location name including the state
+                        const locationParts = [city, state, country].filter(Boolean);
+                        if (locationParts.length > 1) {
+                            locationName.textContent = locationParts.join(', ');
+                        } else {
+                            locationName.textContent = data.display_name || 'Location Found';
+                        }
                     } else {
-                        locationName.textContent = 'Current Location';
+                        locationName.textContent = 'Location Name Not Found';
                     }
                 } catch (error) {
                     console.error('Reverse geocoding error:', error);
-                    locationName.textContent = 'Current Location';
+                    locationName.textContent = 'Could Not Fetch Location Name';
                 }
                 
                 fetchWeatherData(latitude, longitude);
@@ -238,4 +253,3 @@ getGeolocationBtn.addEventListener('click', () => {
         showMessage('Geolocation is not supported by your browser.', true);
     }
 });
-
